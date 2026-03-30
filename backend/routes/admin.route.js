@@ -1,6 +1,7 @@
 import express from 'express'
 import { addDoctor,loginAdmin } from '../controllers/admin.controller.js'
 import upload from '../middlewares/multer.js'
+import authAdmin from '../middlewares/auth-Admin.middleware.js'
 
 const adminRouter = express.Router()
 
