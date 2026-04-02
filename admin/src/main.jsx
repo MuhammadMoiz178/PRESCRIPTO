@@ -13,7 +13,7 @@ createRoot(document.getElementById('root')).render(
     <DoctorContextProvider>
       <AppContextProvider>
           <App />
-      </AppContextProvider>
+      </AppContextProvider>``
     </DoctorContextProvider>
   </AdminContextProvider>
   </BrowserRouter>,
