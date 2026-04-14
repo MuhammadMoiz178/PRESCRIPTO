@@ -23,6 +23,7 @@ const Appointments = () => {
   }
 
   const getAvaiableSlot = async () => {
+    if(!docInfo) return
     setDocSlots([]);
     //Getting Current Date
     let today = new Date()
