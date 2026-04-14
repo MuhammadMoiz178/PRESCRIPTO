@@ -5,6 +5,7 @@ import userModel from '../models/user.model.js';
 import {v2 as cloudinary} from 'cloudinary'
 import doctorModel from '../models/doctor.model.js';
 import appointmentModel from '../models/appointment.model.js';
+import Stripe from 'stripe';
 //Api to register user
 const registerUser = async (req,res) => {
     try {
@@ -201,4 +202,100 @@ const cancelAppointment = async (req,res) => {
         res.json({success:false,message:error.message})
     }
 }
-export {registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment}
+
+// Api to create stripe checkout session for appointment payment
+const placeOrderStripe = async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const { appointmentId } = req.body;
+
+        if (!process.env.STRIPE_SECRET_KEY) {
+            return res.json({ success: false, message: 'Stripe is not configured on server' })
+        }
+
+        const appointmentData = await appointmentModel.findById(appointmentId)
+        if (!appointmentData) {
+            return res.json({ success: false, message: 'Appointment not found' })
+        }
+
+        if (appointmentData.userId !== userId) {
+            return res.json({ success: false, message: 'Unauthorized action' })
+        }
+
+        if (appointmentData.cancelled || appointmentData.isCompleted) {
+            return res.json({ success: false, message: 'This appointment cannot be paid online' })
+        }
+
+        if (appointmentData.payment) {
+            return res.json({ success: false, message: 'Appointment is already paid' })
+        }
+
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+        const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173'
+
+        const session = await stripe.checkout.sessions.create({
+            mode: 'payment',
+            payment_method_types: ['card'],
+            line_items: [
+                {
+                    price_data: {
+                        currency: 'usd',
+                        product_data: {
+                            name: `Appointment with ${appointmentData.docData?.name || 'Doctor'}`,
+                            description: `${appointmentData.slotDate} | ${appointmentData.slotTime}`
+                        },
+                        unit_amount: Math.round(appointmentData.amount * 100)
+                    },
+                    quantity: 1
+                }
+            ],
+            metadata: {
+                appointmentId: String(appointmentId),
+                userId: String(userId)
+            },
+            success_url: `${frontendUrl}/my-appointments?session_id={CHECKOUT_SESSION_ID}&appointmentId=${appointmentId}`,
+            cancel_url: `${frontendUrl}/my-appointments`
+        })
+
+        res.json({ success: true, sessionId: session.id, sessionUrl: session.url })
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message })
+    }
+}
+
+// Api to verify stripe session and mark appointment as paid
+const verifyStripe = async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const { sessionId, appointmentId } = req.body;
+
+        if (!process.env.STRIPE_SECRET_KEY) {
+            return res.json({ success: false, message: 'Stripe is not configured on server' })
+        }
+
+        const appointmentData = await appointmentModel.findById(appointmentId)
+        if (!appointmentData) {
+            return res.json({ success: false, message: 'Appointment not found' })
+        }
+
+        if (appointmentData.userId !== userId) {
+            return res.json({ success: false, message: 'Unauthorized action' })
+        }
+
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY)
+        const session = await stripe.checkout.sessions.retrieve(sessionId)
+
+        if (session.payment_status === 'paid') {
+            await appointmentModel.findByIdAndUpdate(appointmentId, { payment: true })
+            return res.json({ success: true, message: 'Payment successful' })
+        }
+
+        res.json({ success: false, message: 'Payment not completed' })
+    } catch (error) {
+        console.log(error);
+        res.json({ success: false, message: error.message })
+    }
+}
+
+export {registerUser, loginUser, getProfile, updateProfile, bookAppointment, listAppointment, cancelAppointment, placeOrderStripe, verifyStripe}

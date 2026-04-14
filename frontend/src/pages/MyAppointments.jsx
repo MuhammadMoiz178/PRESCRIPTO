@@ -31,6 +31,51 @@ const MyAppointments = () => {
     }
   }
 
+  const verifyStripePayment = async (sessionId, appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/user/verify-stripe',
+        { sessionId, appointmentId },
+        { headers: { token } }
+      )
+
+      if (data.success) {
+        toast.success(data.message)
+        getUserAppointments()
+      } else {
+        toast.error(data.message)
+      }
+    } catch (error) {
+      console.log(error)
+      toast.error(error.message)
+    }
+  }
+
+  const initStripePayment = async (appointmentId) => {
+    try {
+      const { data } = await axios.post(
+        backendUrl + '/api/user/place-order-stripe',
+        { appointmentId },
+        { headers: { token } }
+      )
+
+      if (!data.success) {
+        toast.error(data.message)
+        return
+      }
+
+      if (!data.sessionUrl) {
+        toast.error('Stripe session URL is missing')
+        return
+      }
+
+      window.location.href = data.sessionUrl
+    } catch (error) {
+      console.log(error)
+      toast.error(error.message)
+    }
+  }
+
 
     const cancelAppointment = async (appointmentId) => {
       try {
@@ -53,6 +98,20 @@ const MyAppointments = () => {
       getUserAppointments();
     }
   },[token])
+
+  useEffect(() => {
+    if (!token) return
+
+    const query = new URLSearchParams(window.location.search)
+    const sessionId = query.get('session_id')
+    const appointmentId = query.get('appointmentId')
+
+    if (sessionId && appointmentId) {
+      verifyStripePayment(sessionId, appointmentId)
+      window.history.replaceState({}, '', '/my-appointments')
+    }
+  }, [token])
+
   return (
     <div>
       <p className='pb-3 mt-12 font-medium text-zinc-700 border-b border-gray-200'>My appointments</p>
@@ -74,7 +133,8 @@ const MyAppointments = () => {
               </div>
               <div></div>
               <div className="flex flex-col gap-2 justify-end">
-              {!item.cancelled && !item.isCompleted && <button className='text-sm text-stone-500 text-center sm:min-w-48 py-2 border rounded hover:bg-primary hover:text-white transition-all duration-300'>Pay Online</button>}  
+              {!item.cancelled && !item.isCompleted && !item.payment && <button onClick={()=>initStripePayment(item._id)} className='text-sm text-stone-500 text-center sm:min-w-48 py-2 border rounded hover:bg-primary hover:text-white transition-all duration-300'>Pay Online</button>}
+              {item.payment && <button className='sm:min-w-48 py-2 border border-green-500 rounded text-green-500'>Paid</button>}
               {!item.cancelled && !item.isCompleted && <button onClick={()=>cancelAppointment(item._id)}
                 className='text-sm text-stone-500 text-center sm:min-w-48 py-2 border rounded hover:bg-red-600 hover:text-white transition-all duration-300'>Cancel Appointment</button>}
               {item.cancelled && !item.isCompleted && <button className='sm:min-w-48 py-2 border border-red-500 rounded text-red-500'>Appointment Cancelled</button>}
