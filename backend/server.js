@@ -10,8 +10,7 @@ import userRouter from './routes/user.route.js'
 //app config
 const app = express()
 const PORT = process.env.PORT || 4000;
-connectDb()
-connectCloudinary()
+
 // middlewares
 app.use(express.json())
 app.use(cors())
@@ -25,4 +24,23 @@ app.get('/',(req,res)=>{
     res.send('Api is working')
 })
 
-app.listen(PORT,()=>console.log(`Server is running on port http://localhost:${PORT}`))
+const startServer = async () => {
+    try {
+        await connectDb()
+        await connectCloudinary()
+
+        app.listen(PORT,()=>console.log(`Server is running on port http://localhost:${PORT}`))
+    } catch (error) {
+        console.error('Server startup failed:', error.message)
+        process.exit(1)
+    }
+}
+
+if (process.env.VERCEL) {
+    await connectDb()
+    await connectCloudinary()
+} else {
+    startServer()
+}
+
+export default app
