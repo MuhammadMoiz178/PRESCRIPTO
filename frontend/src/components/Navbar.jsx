@@ -1,16 +1,29 @@
 import React, { useContext, useState } from 'react'
 import {assets} from '../assets/assets'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { AppContext } from '../context/AppContext'
+import { toast } from 'react-toastify'
 const Navbar = () => {
     const navigate = useNavigate()
+    const location = useLocation()
     const [showMenu,setShowMenu] = useState(false)
     // const [token,setToken] = useState(true)
     const {token,setToken,userData} = useContext(AppContext)
+    const adminUrl = import.meta.env.VITE_ADMIN_URL?.trim().replace(/^"|"$/g, '')
 
     const logout = () => {
         setToken(false)
         localStorage.removeItem('token')
+    }
+
+    const openAdminPanel = () => {
+        if (!adminUrl) {
+            toast.error('Admin URL is missing. Set VITE_ADMIN_URL in frontend/.env and restart the app.')
+            return
+        }
+
+        const normalizedAdminUrl = /^https?:\/\//i.test(adminUrl) ? adminUrl : `https://${adminUrl}`
+        window.open(normalizedAdminUrl, '_blank', 'noopener,noreferrer')
     }
   return (
     <div className='flex items-center justify-between text-sm py-4 mb-5 border-b border-b-gray-400'>
@@ -34,7 +47,7 @@ const Navbar = () => {
             </NavLink>
              {location.pathname === '/' && (
                     <button
-                        onClick={() => window.open(import.meta.env.VITE_ADMIN_URL, '_blank')}
+                        onClick={openAdminPanel}
                         className='bg-primary text-white text-xs px-4 py-2 rounded-full hover:bg-gray-700 hidden md:block'
                     >
                         Admin Panel
