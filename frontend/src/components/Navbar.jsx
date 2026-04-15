@@ -9,7 +9,11 @@ const Navbar = () => {
     const [showMenu,setShowMenu] = useState(false)
     // const [token,setToken] = useState(true)
     const {token,setToken,userData} = useContext(AppContext)
-    const adminUrl = import.meta.env.VITE_ADMIN_URL?.trim().replace(/^"|"$/g, '')
+    const fallbackAdminUrl = import.meta.env.DEV
+        ? 'http://localhost:5174'
+        : 'https://prescripto-admin-kohl.vercel.app'
+    const rawAdminUrl = import.meta.env.VITE_ADMIN_URL || fallbackAdminUrl
+    const adminUrl = rawAdminUrl.trim().replace(/^['"]|['"]$/g, '')
 
     const logout = () => {
         setToken(false)
